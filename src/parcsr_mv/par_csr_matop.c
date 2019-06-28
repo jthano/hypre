@@ -3923,7 +3923,7 @@ hypre_ParvecBdiagInvScal( hypre_ParVector     *b,
 
 HYPRE_Int
 hypre_ParvecVariableBlockInvScal( hypre_ParVector     *b,
-                          HYPRE_Int            blockSize,
+						  hypre_ParVector     *block_size,
                           hypre_ParVector    **bs,
                           hypre_ParCSRMatrix  *A)
 {
@@ -3937,10 +3937,10 @@ hypre_ParvecVariableBlockInvScal( hypre_ParVector     *b,
    HYPRE_BigInt first_row   = hypre_ParVectorFirstIndex(b);
    HYPRE_BigInt last_row    = hypre_ParVectorLastIndex(b);
    HYPRE_BigInt end_row     = last_row + 1; /* one past-the-last */
-   HYPRE_BigInt first_row_block = first_row / (HYPRE_BigInt)(blockSize) * (HYPRE_BigInt)blockSize;
-   HYPRE_BigInt end_row_block   = hypre_min( (last_row / (HYPRE_BigInt)blockSize + 1) * (HYPRE_BigInt)blockSize, nrow_global );
+   //HYPRE_BigInt first_row_block = first_row / (HYPRE_BigInt)(blockSize) * (HYPRE_BigInt)blockSize;
+   //HYPRE_BigInt end_row_block   = hypre_min( (last_row / (HYPRE_BigInt)blockSize + 1) * (HYPRE_BigInt)blockSize, nrow_global );
 
-   hypre_assert(blockSize == A->bdiag_size);
+   //hypre_assert(blockSize == A->bdiag_size);
    HYPRE_Complex *bdiaginv = A->bdiaginv;
    //hypre_ParCSRCommPkg *comm_pkg = A->bdiaginv_comm_pkg;
 
@@ -3952,6 +3952,10 @@ hypre_ParvecVariableBlockInvScal( hypre_ParVector     *b,
    /* local vector of b */
    hypre_Vector    *b_local      = hypre_ParVectorLocalVector(b);
    HYPRE_Complex   *b_local_data = hypre_VectorData(b_local);
+
+   hypre_Vector    *b_local_block      = hypre_ParVectorLocalVector(block_size);
+   HYPRE_Complex   *b_local_block_data = hypre_VectorData(b_local_block);
+
 //   /* number of sends (#procs) */
 //   HYPRE_Int num_sends = hypre_ParCSRCommPkgNumSends(comm_pkg);
 //   /* number of rows to send */
@@ -3988,11 +3992,27 @@ hypre_ParvecVariableBlockInvScal( hypre_ParVector     *b,
 //   /* ... */
 //   hypre_ParCSRCommHandleDestroy(comm_handle);
 
-   for (block_start = first_row_block; block_start < end_row_block; block_start += blockSize)
-   {
+   HYPRE_Int first_interior_row=0;
+
+   //TODO: Ensure block size is less than local row range
+
+   block_start=first_interior_row;
+   //
+   // Main loop over the interior of the matrix
+   //
+   for (HYPRE_Int block_vec_i=0; block_vec_i<nrow_global; ++block_vec_i){
+	   //printf("Block data local index %d is %d\n",i,(HYPRE_Int)b_local_data[i] );
+
+	   // Skip through vector until a block size is found
+	   if ((HYPRE_Int)b_local_data[block_vec_i] == 0)
+		   continue;
+
+	   //Get the block size
+	   HYPRE_BigInt blockSize = (HYPRE_BigInt)b_local_data[block_vec_i];
+	   block_end = block_start + blockSize;
+	   s = blockSize;
+
       HYPRE_BigInt big_i;
-      block_end = hypre_min(block_start + (HYPRE_BigInt)blockSize, nrow_global);
-      s = (HYPRE_Int)(block_end - block_start);
       for (big_i = block_start; big_i < block_end; big_i++)
       {
          if (big_i < first_row || big_i >= end_row)
@@ -4035,6 +4055,7 @@ hypre_ParvecVariableBlockInvScal( hypre_ParVector     *b,
          }
       }
       dense += blockSize * blockSize;
+      block_start = block_end;
    }
 
    //hypre_TFree(send_b, HYPRE_MEMORY_HOST);

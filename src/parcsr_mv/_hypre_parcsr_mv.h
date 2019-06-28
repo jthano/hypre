@@ -831,7 +831,7 @@ HYPRE_Int hypre_ParcsrVariableBlockInvScal( hypre_ParCSRMatrix   *A,
 
 HYPRE_Int
 hypre_ParvecVariableBlockInvScal( hypre_ParVector     *b,
-                          HYPRE_Int            blockSize,
+						  hypre_ParVector     *block_size,
                           hypre_ParVector    **bs,
                           hypre_ParCSRMatrix  *A);
 
