@@ -4877,6 +4877,10 @@ hypre_ParcsrVariableBlockInvScal( hypre_ParCSRMatrix   *A,
    //////   }
    //////}
 
+   // TODO: Off processor rows will be handled differently
+   num_cols_A_offd_new = num_cols_A_offd;
+   col_map_offd_A_new=col_map_offd_A;
+
    /* marker for diag */
    marker_diag = hypre_TAlloc(HYPRE_Int, ncol_local, HYPRE_MEMORY_HOST);
    for (i = 0; i < ncol_local; i++)
@@ -4915,8 +4919,8 @@ hypre_ParcsrVariableBlockInvScal( hypre_ParCSRMatrix   *A,
    HYPRE_Int      dgetri_lwork = -1, lapack_info;
 
    // Indices that indicate where the interior the matrix starts for block scaling
-   HYPRE_Int interior_loop_str=0, interior_loop_stop=nrow_local;
-   HYPRE_Int first_interior_row=0;
+   HYPRE_Int interior_loop_str=0, interior_loop_stop=last_row;
+   HYPRE_Int first_interior_row=first_row;
 
    //TODO: Ensure block size is less than local row range
 
@@ -4924,8 +4928,8 @@ hypre_ParcsrVariableBlockInvScal( hypre_ParCSRMatrix   *A,
    //
    // Main loop over the interior of the matrix
    //
-   for (HYPRE_Int block_vec_i=interior_loop_str; block_vec_i<interior_loop_stop; ++block_vec_i){
-	   //printf("Block data local index %d is %d\n",i,(HYPRE_Int)b_local_data[i] );
+   for (HYPRE_Int block_vec_i=0; block_vec_i<nrow_local; ++block_vec_i){
+	   printf("Block data local index %d is %d\n",block_vec_i,(HYPRE_Int)b_local_data[block_vec_i] );
 
 	   // Skip through vector until a block size is found
 	   if ((HYPRE_Int)b_local_data[block_vec_i] == 0)
@@ -4953,6 +4957,7 @@ hypre_ParcsrVariableBlockInvScal( hypre_ParCSRMatrix   *A,
 		      if (cid >= block_start && cid < block_end)
 		      {
 		         dense[row_index + (HYPRE_Int)(cid-block_start)*blockSize] = A_diag_a[k];
+		         //printf("At %d = %f\n",row_index + (HYPRE_Int)(cid-block_start)*blockSize,(float)A_diag_a[k] );
 		      }
 		   }
 		   if (num_cols_A_offd)
@@ -4963,6 +4968,7 @@ hypre_ParcsrVariableBlockInvScal( hypre_ParCSRMatrix   *A,
 		         if (cid >= block_start && cid < block_end)
 		         {
 		            dense[row_index + (HYPRE_Int)(cid-block_start)*blockSize] = A_offd_a[k];
+		            //printf("At %d = %f\n",row_index + (HYPRE_Int)(cid-block_start)*blockSize,(float)A_offd_a[k] );
 		         }
 		      }
 		   }
@@ -4980,7 +4986,7 @@ hypre_ParcsrVariableBlockInvScal( hypre_ParCSRMatrix   *A,
 	      /* query the optimal size of work */
 	      hypre_dgetri(&blockSize, dense, &blockSize, IPIV, &lwork_opt, &query, &lapack_info);
 
-	      printf("Optimal block size is %f\n",lwork_opt );
+	      //printf("Optimal block size is %f\n",lwork_opt );
 
 	      hypre_assert(lapack_info == 0);
 
@@ -5002,7 +5008,7 @@ hypre_ParcsrVariableBlockInvScal( hypre_ParCSRMatrix   *A,
 	      for (j = 0; j < s; j++)
 	      {
 	         HYPRE_Complex t = dense[j+i*blockSize];
-	         printf("(%d,%d)=%f\n",i,j,(float)t );
+	         //printf("(%d,%d)=%f\n",i,j,(float)t );
 	         Fnorm += t * t;
 	      }
 	   }
@@ -5237,7 +5243,6 @@ hypre_ParcsrVariableBlockInvScal( hypre_ParCSRMatrix   *A,
    */
    //TODO: remove this, keep for now while testing with constant vector scaling routine
    /* save diagonal blocks in A */
-   A->bdiag_size = 4;
    A->bdiaginv = dense_all;
 
    /* free workspace */
