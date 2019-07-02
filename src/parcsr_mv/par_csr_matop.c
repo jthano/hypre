@@ -4003,7 +4003,7 @@ hypre_ParvecVariableBlockInvScal( hypre_ParVector     *b,
    // Main loop over the interior of the matrix
    //
    for (HYPRE_Int block_vec_i=0; block_vec_i<(end_row-first_row); ++block_vec_i){
-	   printf("Block data local index %d is %d\n",block_vec_i,(HYPRE_Int)b_local_block_data[block_vec_i] );
+	   //printf("Block data local index %d is %d\n",block_vec_i,(HYPRE_Int)b_local_block_data[block_vec_i] );
 
 	   // Skip through vector until a block size is found
 	   if ((HYPRE_Int)b_local_block_data[block_vec_i] == 0)
