@@ -3932,6 +3932,8 @@ hypre_ParvecVariableBlockInvScal( hypre_ParVector     *b,
    hypre_MPI_Comm_rank(comm, &my_id);
    hypre_MPI_Comm_size(comm, &num_procs);
 
+   //fprintf(stderr,"Vec inverse scaling called for id=%d\n",my_id);
+
    HYPRE_Int i, j, s, block_start, block_end;
    HYPRE_BigInt nrow_global = hypre_ParVectorGlobalSize(b);
    HYPRE_BigInt first_row   = hypre_ParVectorFirstIndex(b);
@@ -3992,7 +3994,7 @@ hypre_ParvecVariableBlockInvScal( hypre_ParVector     *b,
 //   /* ... */
 //   hypre_ParCSRCommHandleDestroy(comm_handle);
 
-   HYPRE_Int first_interior_row=0;
+   HYPRE_Int first_interior_row=first_row;
 
    //TODO: Ensure block size is less than local row range
 
@@ -4000,25 +4002,21 @@ hypre_ParvecVariableBlockInvScal( hypre_ParVector     *b,
    //
    // Main loop over the interior of the matrix
    //
-   for (HYPRE_Int block_vec_i=0; block_vec_i<nrow_global; ++block_vec_i){
-	   //printf("Block data local index %d is %d\n",i,(HYPRE_Int)b_local_data[i] );
+   for (HYPRE_Int block_vec_i=0; block_vec_i<(end_row-first_row); ++block_vec_i){
+	   printf("Block data local index %d is %d\n",block_vec_i,(HYPRE_Int)b_local_block_data[block_vec_i] );
 
 	   // Skip through vector until a block size is found
-	   if ((HYPRE_Int)b_local_data[block_vec_i] == 0)
+	   if ((HYPRE_Int)b_local_block_data[block_vec_i] == 0)
 		   continue;
 
 	   //Get the block size
-	   HYPRE_BigInt blockSize = (HYPRE_BigInt)b_local_data[block_vec_i];
+	   HYPRE_BigInt blockSize = (HYPRE_BigInt)b_local_block_data[block_vec_i];
 	   block_end = block_start + blockSize;
 	   s = blockSize;
 
       HYPRE_BigInt big_i;
       for (big_i = block_start; big_i < block_end; big_i++)
       {
-         if (big_i < first_row || big_i >= end_row)
-         {
-            continue;
-         }
 
          HYPRE_Int local_i = (HYPRE_Int)(big_i - first_row);
          HYPRE_Int block_i = (HYPRE_Int)(big_i - block_start);
@@ -4038,20 +4036,6 @@ hypre_ParvecVariableBlockInvScal( hypre_ParVector     *b,
                HYPRE_Int rid = (HYPRE_Int)(global_rid - first_row);
                bnew_local_data[local_i] += val * b_local_data[rid];
             }
-//            else
-//            {
-//               HYPRE_Int rid;
-//
-//               if (global_rid < first_row)
-//               {
-//                  rid = (HYPRE_Int)(global_rid - first_row_block);
-//               }
-//               else
-//               {
-//                  rid = (HYPRE_Int)(first_row - first_row_block + global_rid - end_row);
-//               }
-//               bnew_local_data[local_i] += val * recv_b[rid];
-//            }
          }
       }
       dense += blockSize * blockSize;
@@ -4061,6 +4045,8 @@ hypre_ParvecVariableBlockInvScal( hypre_ParVector     *b,
    //hypre_TFree(send_b, HYPRE_MEMORY_HOST);
    //hypre_TFree(recv_b, HYPRE_MEMORY_HOST);
    *bs = bnew;
+
+   //fprintf(stderr,"Vec inverse scaling complete for id=%d\n",my_id);
 
    return hypre_error_flag;
 }
@@ -4682,6 +4668,8 @@ hypre_ParcsrBdiagInvScal( hypre_ParCSRMatrix   *A,
    return hypre_error_flag;
 }
 
+
+//TODO: need to free dense all?
 /**
  * @brief Compute As = B^{-1}*A, where B is the block diagonal of A
  * @param[in]  A        :
@@ -4879,7 +4867,13 @@ hypre_ParcsrVariableBlockInvScal( hypre_ParCSRMatrix   *A,
 
    // TODO: Off processor rows will be handled differently
    num_cols_A_offd_new = num_cols_A_offd;
-   col_map_offd_A_new=col_map_offd_A;
+   col_map_offd_A_new = hypre_CTAlloc(HYPRE_BigInt, num_cols_A_offd , HYPRE_MEMORY_HOST);
+
+   for (i = 0; i < num_cols_A_offd_new; i++)
+   {
+	   col_map_offd_A_new[i] = col_map_offd_A[i];
+   }
+
 
    /* marker for diag */
    marker_diag = hypre_TAlloc(HYPRE_Int, ncol_local, HYPRE_MEMORY_HOST);
@@ -4929,7 +4923,7 @@ hypre_ParcsrVariableBlockInvScal( hypre_ParCSRMatrix   *A,
    // Main loop over the interior of the matrix
    //
    for (HYPRE_Int block_vec_i=0; block_vec_i<nrow_local; ++block_vec_i){
-	   printf("Block data local index %d is %d\n",block_vec_i,(HYPRE_Int)b_local_data[block_vec_i] );
+	   //printf("Block data local index %d is %d\n",block_vec_i,(HYPRE_Int)b_local_data[block_vec_i] );
 
 	   // Skip through vector until a block size is found
 	   if ((HYPRE_Int)b_local_data[block_vec_i] == 0)
@@ -5252,6 +5246,8 @@ hypre_ParcsrVariableBlockInvScal( hypre_ParCSRMatrix   *A,
    hypre_TFree(marker_newoffd, HYPRE_MEMORY_HOST);
    hypre_TFree(offd2new, HYPRE_MEMORY_HOST);
    //hypre_CSRMatrixDestroy(A_ext);
+
+   //fprintf(stderr,"CSR inverse scaling complete for id=%d\n",my_id);
 
    return hypre_error_flag;
 
